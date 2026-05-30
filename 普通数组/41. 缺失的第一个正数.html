@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>缺失的第一个正数 - 算法可视化</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      padding: 8px;
+      font-size: 16px;
+      width: 200px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    button:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+
+    .array-container {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin: 40px 0;
+      min-height: 100px;
+    }
+
+    .array-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .box {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+      background-color: white;
+      border: 2px solid #7f8c8d;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .index {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #7f8c8d;
+    }
+
+    .pointer {
+      position: absolute;
+      top: -30px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #e74c3c;
+      display: none;
+    }
+
+    /* 状态高亮样式 */
+    .active-i {
+      border-color: #e74c3c;
+      background-color: #fadbd8;
+    }
+
+    .target-swap {
+      border-color: #f39c12;
+      background-color: #fdebd0;
+    }
+
+    .correct-pos {
+      border-color: #27ae60;
+      background-color: #d5f5e3;
+    }
+
+    .info-panel {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .conditions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .condition {
+      padding: 10px;
+      background-color: #f8f9f9;
+      border-radius: 4px;
+      text-align: center;
+      border-left: 4px solid #bdc3c7;
+    }
+
+    .condition.pass {
+      border-left-color: #27ae60;
+      background-color: #eaeded;
+    }
+
+    .condition.fail {
+      border-left-color: #e74c3c;
+      background-color: #fdedec;
+    }
+
+    .log-box {
+      height: 150px;
+      overflow-y: auto;
+      background: #2c3e50;
+      color: #ecf0f1;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .log-entry {
+      margin-bottom: 5px;
+      border-bottom: 1px solid #34495e;
+      padding-bottom: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>缺失的第一个正数 (原地哈希)</h1>
+
+  <div class="controls">
+    <input type="text" id="arrayInput" value="3, 4, -1, 1" placeholder="输入数组，用逗号分隔">
+    <button onclick="reset()">重置</button>
+    <button id="nextBtn" onclick="nextStep()">下一步</button>
+  </div>
+
+  <div class="array-container" id="arrayContainer"></div>
+
+  <div class="info-panel">
+    <div class="conditions" id="conditions">
+      <div class="condition" id="cond1">1. nums[i] > 0</div>
+      <div class="condition" id="cond2">2. nums[i] <= N</div>
+          <div class="condition" id="cond3">3. nums[nums[i]-1] != nums[i]</div>
+      </div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+    <script>
+      let nums = [];
+      let n = 0;
+      let i = 0;
+      let state = 'EVALUATE'; // EVALUATE, SWAP, FIND_MISSING, DONE
+
+      const container = document.getElementById('arrayContainer');
+      const logBox = document.getElementById('logBox');
+      const nextBtn = document.getElementById('nextBtn');
+
+      function log(message, color = "#ecf0f1") {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.style.color = color;
+        entry.textContent = `[步骤] ${message}`;
+        logBox.appendChild(entry);
+        logBox.scrollTop = logBox.scrollHeight;
+      }
+
+      function renderArray() {
+        container.innerHTML = '';
+        nums.forEach((val, idx) => {
+          const item = document.createElement('div');
+          item.className = 'array-item';
+
+          const ptr = document.createElement('div');
+          ptr.className = 'pointer';
+          ptr.textContent = '指针 i';
+          if (idx === i && state !== 'FIND_MISSING' && state !== 'DONE') ptr.style.display = 'block';
+
+          const box = document.createElement('div');
+          box.className = 'box';
+          box.id = `box-${idx}`;
+          box.textContent = val;
+
+          // 如果数字已经在正确位置，给予绿框提示
+          if (state === 'FIND_MISSING' || state === 'DONE') {
+            if (val === idx + 1) box.classList.add('correct-pos');
+          }
+
+          const indexLabel = document.createElement('div');
+          indexLabel.className = 'index';
+          indexLabel.textContent = `索引 ${idx}`;
+
+          item.appendChild(ptr);
+          item.appendChild(box);
+          item.appendChild(indexLabel);
+          container.appendChild(item);
+        });
+      }
+
+      function resetConditions() {
+        ['cond1', 'cond2', 'cond3'].forEach(id => {
+          const el = document.getElementById(id);
+          el.className = 'condition';
+        });
+      }
+
+      function setCondition(id, pass) {
+        const el = document.getElementById(id);
+        el.className = `condition ${pass ? 'pass' : 'fail'}`;
+      }
+
+      function reset() {
+        const input = document.getElementById('arrayInput').value;
+        nums = input.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+        n = nums.length;
+        i = 0;
+        state = 'EVALUATE';
+        logBox.innerHTML = '';
+        nextBtn.disabled = false;
+        resetConditions();
+        log(`初始化数组: [${nums.join(', ')}], 长度 N = ${n}`);
+        renderArray();
+      }
+
+      function nextStep() {
+        if (state === 'DONE') return;
+
+        resetConditions();
+        renderArray();
+
+        if (state === 'EVALUATE') {
+          if (i >= n) {
+            state = 'FIND_MISSING';
+            log("--- 第一阶段结束，开始遍历寻找缺失的正数 ---", "#f1c40f");
+            i = 0;
+            renderArray();
+            return;
+          }
+
+          const val = nums[i];
+          document.getElementById(`box-${i}`).classList.add('active-i');
+          log(`当前指针 i=${i}, 考察手里的数字: ${val}`);
+
+          const cond1 = val > 0;
+          const cond2 = val <= n;
+          setCondition('cond1', cond1);
+          setCondition('cond2', cond2);
+
+          let cond3 = false;
+          if (cond1 && cond2) {
+            const targetIdx = val - 1;
+            cond3 = nums[targetIdx] !== val;
+            setCondition('cond3', cond3);
+
+            if (cond3) {
+              document.getElementById(`box-${targetIdx}`).classList.add('target-swap');
+              log(`三个条件全满足！准备将 ${val} 和索引 ${targetIdx} 处的 ${nums[targetIdx]} 交换。`, "#3498db");
+              state = 'SWAP';
+              return;
+            } else {
+              document.getElementById(`box-${targetIdx}`).classList.add('correct-pos');
+              log(`条件3失败：索引 ${targetIdx} 已经有正确的数字 ${val} 了。防死循环，跳过。`, "#e74c3c");
+            }
+          } else {
+            log(`数字 ${val} 不是 [1, ${n}] 范围内的有效正数，无视它。`, "#e74c3c");
+          }
+
+          log(`>>> while循环条件不满足，指针 i 前进 (i++) <<<`, "#e67e22");
+          i++;
+          // state 依然是 EVALUATE
+        }
+        else if (state === 'SWAP') {
+          const val = nums[i];
+          const targetIdx = val - 1;
+
+          log(`执行交换: nums[${i}] 与 nums[${targetIdx}] 互换位置。`, "#2ecc71");
+
+          // 交换数据
+          const temp = nums[i];
+          nums[i] = nums[targetIdx];
+          nums[targetIdx] = temp;
+
+          renderArray();
+          document.getElementById(`box-${targetIdx}`).classList.add('correct-pos');
+          document.getElementById(`box-${i}`).classList.add('active-i');
+
+          log(`>>> 重点：发生了交换，指针 i 原地不动！继续用 while 检查换回来的新数字 ${nums[i]} <<<`, "#e67e22");
+          state = 'EVALUATE'; // 回到评估阶段，i 不变
+        }
+        else if (state === 'FIND_MISSING') {
+          if (i >= n) {
+            log(`所有坑位都被正确填满，缺失的第一个正数是 N + 1 = ${n + 1}`, "#2ecc71");
+            state = 'DONE';
+            nextBtn.disabled = true;
+            return;
+          }
+
+          document.getElementById(`box-${i}`).classList.add('active-i');
+          if (nums[i] !== i + 1) {
+            log(`发现目标！索引 ${i} 的位置本来应该放 ${i + 1}，但现在是 ${nums[i]}。`, "#e74c3c");
+            log(`✅ 缺失的第一个正数是: ${i + 1}`, "#2ecc71");
+            state = 'DONE';
+            nextBtn.disabled = true;
+          } else {
+            log(`索引 ${i} 位置正确 (${nums[i]})，继续检查下一个。`);
+            i++;
+          }
+        }
+      }
+
+      // 初始化
+      reset();
+    </script>
+</body>
+
+</html>
