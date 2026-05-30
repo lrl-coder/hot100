@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>螺旋矩阵算法可视化</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 0;
+    }
+
+    .layout {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    /* 左侧面板：控制与矩阵显示 */
+    .left-panel {
+      flex: 1;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .control-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 8px;
+      font-size: 16px;
+      border: 1px solid #d9d9d9;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+
+    button {
+      padding: 8px 16px;
+      font-size: 15px;
+      cursor: pointer;
+      background-color: #1890ff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      transition: background 0.2s;
+      font-weight: 500;
+    }
+
+    button:hover {
+      background-color: #40a9ff;
+    }
+
+    button:disabled {
+      background-color: #d9d9d9;
+      cursor: not-allowed;
+    }
+
+    #nextBtn {
+      background-color: #52c41a;
+    }
+
+    #nextBtn:hover {
+      background-color: #73d13d;
+    }
+
+    #nextBtn:disabled {
+      background-color: #d9d9d9;
+    }
+
+    /* 矩阵网格 */
+    .matrix-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 30px;
+      position: relative;
+    }
+
+    .grid {
+      display: grid;
+      gap: 4px;
+      background-color: #e8e8e8;
+      padding: 4px;
+      border-radius: 8px;
+      position: relative;
+    }
+
+    .cell {
+      width: 50px;
+      height: 50px;
+      background-color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+    }
+
+    /* 状态样式 */
+    .cell.visited {
+      background-color: #d9f7be;
+      color: #389e0d;
+    }
+
+    .cell.active {
+      background-color: #ffe58f;
+      color: #d46b08;
+      transform: scale(1.05);
+      box-shadow: 0 0 10px rgba(250, 173, 20, 0.5);
+      z-index: 10;
+    }
+
+    .cell.out-bounds {
+      opacity: 0.3;
+      background-color: #f5f5f5;
+      color: #bfbfbf;
+    }
+
+    /* 边界指示器 */
+    .boundary-info {
+      display: flex;
+      justify-content: space-around;
+      background: #e6f7ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      border: 1px solid #91d5ff;
+    }
+
+    .b-item {
+      text-align: center;
+      font-size: 16px;
+    }
+
+    .b-val {
+      font-weight: bold;
+      font-size: 20px;
+      color: #1890ff;
+      display: block;
+      margin-top: 5px;
+    }
+
+    .b-item.danger .b-val {
+      color: #f5222d;
+    }
+
+    /* 碰撞警报颜色 */
+
+    /* 右侧面板：日志与结果 */
+    .right-panel {
+      width: 350px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .result-box {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .result-array {
+      font-family: monospace;
+      font-size: 16px;
+      word-wrap: break-word;
+      color: #d46b08;
+      font-weight: bold;
+      min-height: 40px;
+    }
+
+    .log-box {
+      flex: 1;
+      background: #282c34;
+      color: #abb2bf;
+      padding: 15px;
+      border-radius: 12px;
+      font-family: monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-y: auto;
+      max-height: 500px;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .log-entry {
+      margin-bottom: 8px;
+      border-bottom: 1px solid #3e4451;
+      padding-bottom: 8px;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-hl {
+      color: #98c379;
+    }
+
+    /* 绿色高亮 */
+    .log-err {
+      color: #e06c75;
+    }
+
+    /* 红色高亮 */
+    .log-warn {
+      color: #e5c07b;
+    }
+
+    /* 黄色高亮 */
+    .log-info {
+      color: #61afef;
+    }
+
+    /* 蓝色高亮 */
+  </style>
+</head>
+
+<body>
+
+  <h1>螺旋矩阵 (边界收缩法)</h1>
+
+  <div class="layout">
+    <div class="left-panel">
+      <div class="controls">
+        <div class="control-row">
+          <label>二维数组输入 (JSON):</label>
+        </div>
+        <div class="control-row">
+          <input type="text" id="matrixInput" value="[[1,2,3,4],[5,6,7,8],[9,10,11,12]]">
+          <button onclick="reset()">加载重置</button>
+          <button id="nextBtn" onclick="nextStep()">下一步</button>
+        </div>
+      </div>
+
+      <div class="boundary-info" id="boundaries">
+        <div class="b-item" id="b-top">Top 上墙壁<span class="b-val" id="val-top">0</span></div>
+        <div class="b-item" id="b-bottom">Bottom 下墙壁<span class="b-val" id="val-bottom">0</span></div>
+        <div class="b-item" id="b-left">Left 左墙壁<span class="b-val" id="val-left">0</span></div>
+        <div class="b-item" id="b-right">Right 右墙壁<span class="b-val" id="val-right">0</span></div>
+      </div>
+
+      <div class="matrix-container">
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="result-box">
+        <h3 style="margin-top:0;">当前输出数组 (res):</h3>
+        <div class="result-array" id="resultArray">[]</div>
+      </div>
+
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+
+  <script>
+    let matrix = [];
+    let m = 0, n = 0;
+    let topBound = 0, bottomBound = 0, leftBound = 0, rightBound = 0;
+    let res = [];
+
+    // 状态机变量
+    let direction = 0; // 0:右, 1:下, 2:左, 3:上
+    let r = 0, c = 0;  // 当前遍历的行列坐标
+    let phase = 'INIT_DIR'; // INIT_DIR (准备方向), TRAVERSE (遍历行/列), SHRINK_CHECK (收缩并检查)
+
+    const gridEl = document.getElementById('grid');
+    const logBox = document.getElementById('logBox');
+    const nextBtn = document.getElementById('nextBtn');
+    const resultEl = document.getElementById('resultArray');
+
+    const DIR_NAMES = ["向右", "向下", "向左", "向上"];
+
+    function log(msg) {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = msg;
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function updateBoundaryUI() {
+      document.getElementById('val-top').innerText = topBound;
+      document.getElementById('val-bottom').innerText = bottomBound;
+      document.getElementById('val-left').innerText = leftBound;
+      document.getElementById('val-right').innerText = rightBound;
+
+      // 碰撞警报
+      document.getElementById('b-top').className = `b-item ${topBound > bottomBound ? 'danger' : ''}`;
+      document.getElementById('b-bottom').className = `b-item ${topBound > bottomBound ? 'danger' : ''}`;
+      document.getElementById('b-left').className = `b-item ${leftBound > rightBound ? 'danger' : ''}`;
+      document.getElementById('b-right').className = `b-item ${leftBound > rightBound ? 'danger' : ''}`;
+    }
+
+    function renderGrid() {
+      gridEl.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+      gridEl.innerHTML = '';
+
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.id = `cell-${i}-${j}`;
+          cell.innerText = matrix[i][j];
+
+          // 样式判断
+          if (res.includes(matrix[i][j])) {
+            cell.classList.add('visited');
+          }
+          if (phase === 'TRAVERSE' && i === r && j === c) {
+            cell.classList.add('active');
+          }
+          // 越界灰化处理
+          if (i < topBound || i > bottomBound || j < leftBound || j > rightBound) {
+            cell.classList.add('out-bounds');
+          }
+
+          gridEl.appendChild(cell);
+        }
+      }
+    }
+
+    function reset() {
+      try {
+        matrix = JSON.parse(document.getElementById('matrixInput').value);
+        if (!Array.isArray(matrix) || !Array.isArray(matrix[0])) throw new Error();
+      } catch (e) {
+        alert("请输入合法的二维数组 JSON，如 [[1,2],[3,4]]");
+        return;
+      }
+
+      m = matrix.length;
+      n = matrix[0].length;
+      topBound = 0;
+      bottomBound = m - 1;
+      leftBound = 0;
+      rightBound = n - 1;
+
+      res = [];
+      direction = 0;
+      phase = 'INIT_DIR';
+
+      logBox.innerHTML = '';
+      resultEl.innerText = '[]';
+      nextBtn.disabled = false;
+
+      log(`<span class="log-info">=== 初始化矩阵 ${m}x${n} ===</span>`);
+      log(`设置初始四面墙壁: Top=0, Bottom=${bottomBound}, Left=0, Right=${rightBound}`);
+
+      updateBoundaryUI();
+      renderGrid();
+    }
+
+    function nextStep() {
+      if (phase === 'DONE') return;
+
+      if (phase === 'INIT_DIR') {
+        log(`<br/><span class="log-warn">▶ 准备 ${DIR_NAMES[direction]} 移动</span>`);
+
+        // 根据方向初始化起点坐标
+        if (direction === 0) { r = topBound; c = leftBound; }       // 右：走 top 行，从 left 到 right
+        else if (direction === 1) { r = topBound; c = rightBound; } // 下：走 right 列，从 top 到 bottom
+        else if (direction === 2) { r = bottomBound; c = rightBound; }// 左：走 bottom 行，从 right 到 left
+        else if (direction === 3) { r = bottomBound; c = leftBound; }// 上：走 left 列，从 bottom 到 top
+
+        // 检查这趟遍历是否直接就不成立（比如 left > right 了但还没触发外层跳出）
+        // 实际上标准算法是在 shrink 之后立刻 break，所以这里通常是安全的
+
+        phase = 'TRAVERSE';
+        renderGrid();
+        log(`循环开始：准备访问第一个格子 [${r}, ${c}]`);
+      }
+      else if (phase === 'TRAVERSE') {
+        // 1. 访问当前格子
+        const val = matrix[r][c];
+        res.push(val);
+        resultEl.innerText = JSON.stringify(res);
+        log(`  取出 matrix[${r}][${c}] = <span class="log-hl">${val}</span>，加入 res`);
+
+        // 2. 决定下一个格子
+        let isEnd = false;
+        if (direction === 0) { // 向右
+          if (c < rightBound) c++; else isEnd = true;
+        } else if (direction === 1) { // 向下
+          if (r < bottomBound) r++; else isEnd = true;
+        } else if (direction === 2) { // 向左
+          if (c > leftBound) c--; else isEnd = true;
+        } else if (direction === 3) { // 向上
+          if (r > topBound) r--; else isEnd = true;
+        }
+
+        renderGrid();
+
+        // 3. 如果走到头了，进入收缩边界阶段
+        if (isEnd) {
+          phase = 'SHRINK_CHECK';
+          log(`  <span class="log-info">本趟 ${DIR_NAMES[direction]} 遍历结束。</span>`);
+        }
+      }
+      else if (phase === 'SHRINK_CHECK') {
+        // 1. 收缩边界
+        if (direction === 0) {
+          topBound++;
+          log(`🧱 上面的墙壁被吃光了，向下压：<span class="log-warn">Top += 1</span> (当前 Top=${topBound})`);
+        } else if (direction === 1) {
+          rightBound--;
+          log(`🧱 右边的墙壁被吃光了，向左压：<span class="log-warn">Right -= 1</span> (当前 Right=${rightBound})`);
+        } else if (direction === 2) {
+          bottomBound--;
+          log(`🧱 下面的墙壁被吃光了，向上压：<span class="log-warn">Bottom -= 1</span> (当前 Bottom=${bottomBound})`);
+        } else if (direction === 3) {
+          leftBound++;
+          log(`🧱 左边的墙壁被吃光了，向右压：<span class="log-warn">Left += 1</span> (当前 Left=${leftBound})`);
+        }
+
+        updateBoundaryUI();
+        renderGrid(); // 重新渲染触发越界灰化
+
+        // 2. 碰撞检测
+        if (topBound > bottomBound || leftBound > rightBound) {
+          phase = 'DONE';
+          nextBtn.disabled = true;
+          log(`<br/><span class="log-err">🚨 触发碰撞检测！</span>`);
+          if (topBound > bottomBound) log(`原因: Top (${topBound}) > Bottom (${bottomBound})，上下墙壁交错。`);
+          if (leftBound > rightBound) log(`原因: Left (${leftBound}) > Right (${rightBound})，左右墙壁交错。`);
+          log(`<span class="log-hl">🎉 矩阵全部遍历完毕！</span>`);
+        } else {
+          // 3. 改变方向，进入下一轮
+          direction = (direction + 1) % 4;
+          phase = 'INIT_DIR';
+          log(`检查通过：墙壁尚未交错。转向下一个方向。`);
+        }
+      }
+    }
+
+    // 初始启动
+    window.onload = reset;
+  </script>
+</body>
+
+</html>
