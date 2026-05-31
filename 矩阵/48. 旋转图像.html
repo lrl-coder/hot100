@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>矩阵旋转原理可视化</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f9f9f9;
+      margin-top: 40px;
+    }
+
+    h2 {
+      color: #333;
+    }
+
+    /* 矩阵容器 */
+    .matrix-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      background-color: #fff;
+      border: 2px solid #333;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+
+    /* 绘制虚线的主对角线 */
+    .diagonal-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 424px;
+      /* 300 * sqrt(2) */
+      height: 2px;
+      background: repeating-linear-gradient(90deg, #ff5722, #ff5722 10px, transparent 10px, transparent 20px);
+      transform-origin: top left;
+      transform: rotate(45deg);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* 矩阵网格线 */
+    .grid-line-h {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: #ddd;
+    }
+
+    .grid-line-v {
+      position: absolute;
+      top: 0;
+      width: 1px;
+      height: 100%;
+      background: #ddd;
+    }
+
+    /* 独立的单元格，使用绝对定位方便动画 */
+    .cell {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 18px;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      /* 平滑移动动画 */
+      box-sizing: border-box;
+      background-color: transparent;
+    }
+
+    .cell:hover {
+      background-color: #f0f0f0;
+    }
+
+    /* 激活状态的单元格 */
+    .cell.active {
+      background-color: #4CAF50;
+      color: white;
+      font-weight: bold;
+      z-index: 10;
+      border: 2px solid #2E7D32;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    /* 控制面板 */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #2196F3;
+      color: white;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #1976D2;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    #btn-reset {
+      background-color: #9e9e9e;
+    }
+
+    #btn-reset:hover {
+      background-color: #757575;
+    }
+
+    /* 状态文本展示 */
+    .status-box {
+      width: 100%;
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #bbdefb;
+      font-family: monospace;
+      font-size: 16px;
+      text-align: center;
+      min-height: 24px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>矩阵顺时针旋转 90° 坐标变换演示</h2>
+  <p style="color: #666; margin-bottom: 20px;">请先点击网格中的任意一个方块，然后执行操作</p>
+
+  <div class="matrix-container" id="matrix">
+    <div class="diagonal-line"></div>
+
+    <div class="grid-line-h" style="top: 100px;"></div>
+    <div class="grid-line-h" style="top: 200px;"></div>
+    <div class="grid-line-v" style="left: 100px;"></div>
+    <div class="grid-line-v" style="left: 200px;"></div>
+  </div>
+
+  <div class="controls">
+    <div class="btn-group">
+      <button id="btn-transpose" disabled>步骤 1：沿主对角线转置</button>
+      <button id="btn-reverse" disabled>步骤 2：逐行水平翻转</button>
+      <button id="btn-reset">重置 (Reset)</button>
+    </div>
+    <div class="status-box" id="status-text">
+      请选择一个起始方块...
+    </div>
+  </div>
+
+  <script>
+    const n = 3; // 3x3 矩阵
+    const cellSize = 100; // 每个格子 100px
+    const matrixDiv = document.getElementById('matrix');
+    const statusText = document.getElementById('status-text');
+
+    const btnTranspose = document.getElementById('btn-transpose');
+    const btnReverse = document.getElementById('btn-reverse');
+    const btnReset = document.getElementById('btn-reset');
+
+    let cells = [];
+    let activeCell = null;
+    let currentState = 'initial'; // 'initial', 'transposed', 'reversed'
+    let currentPos = { i: 0, j: 0 };
+    let originalPos = { i: 0, j: 0 };
+
+    // 初始化矩阵网格
+    function initMatrix() {
+      // 清理旧的单元格（保留网格线）
+      const oldCells = document.querySelectorAll('.cell');
+      oldCells.forEach(c => c.remove());
+      cells = [];
+      activeCell = null;
+      currentState = 'initial';
+      btnTranspose.disabled = true;
+      btnReverse.disabled = true;
+      statusText.innerText = "请选择一个起始方块...";
+
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.innerText = `(${i}, ${j})`;
+
+          // 设置初始物理位置
+          cell.style.top = `${i * cellSize}px`;
+          cell.style.left = `${j * cellSize}px`;
+
+          // 保存坐标数据
+          cell.dataset.i = i;
+          cell.dataset.j = j;
+
+          // 绑定点击事件
+          cell.onclick = () => selectCell(cell, i, j);
+
+          matrixDiv.appendChild(cell);
+          cells.push(cell);
+        }
+      }
+    }
+
+    // 选择要观察的方块
+    function selectCell(cell, i, j) {
+      if (currentState !== 'initial') return; // 只能在初始状态选择
+
+      // 移除其他激活状态
+      cells.forEach(c => c.classList.remove('active'));
+
+      // 激活当前块
+      cell.classList.add('active');
+      activeCell = cell;
+      originalPos = { i, j };
+      currentPos = { i, j };
+
+      statusText.innerHTML = `当前选中坐标: <strong>(${i}, ${j})</strong>. 请点击【步骤 1】`;
+      btnTranspose.disabled = false;
+      btnReverse.disabled = true;
+    }
+
+    // 步骤 1：转置 (i, j) -> (j, i)
+    btnTranspose.onclick = () => {
+      if (!activeCell || currentState !== 'initial') return;
+
+      const newI = currentPos.j;
+      const newJ = currentPos.i;
+
+      // 移动方块的物理位置 (带有 CSS transition 动画)
+      activeCell.style.top = `${newI * cellSize}px`;
+      activeCell.style.left = `${newJ * cellSize}px`;
+      activeCell.innerText = `(${newI}, ${newJ})`;
+
+      // 更新状态
+      currentPos = { i: newI, j: newJ };
+      currentState = 'transposed';
+
+      statusText.innerHTML = `坐标 <strong>(${originalPos.i}, ${originalPos.j})</strong> 沿对角线转置变为了 <strong>(${currentPos.i}, ${currentPos.j})</strong>. 请点击【步骤 2】`;
+
+      btnTranspose.disabled = true;
+      btnReverse.disabled = false;
+    };
+
+    // 步骤 2：翻转 (i, j) -> (i, n - 1 - j)
+    btnReverse.onclick = () => {
+      if (!activeCell || currentState !== 'transposed') return;
+
+      const newI = currentPos.i; // 行不变
+      const newJ = n - 1 - currentPos.j; // 列水平翻转
+
+      // 移动方块的物理位置
+      activeCell.style.top = `${newI * cellSize}px`;
+      activeCell.style.left = `${newJ * cellSize}px`;
+      activeCell.innerText = `(${newI}, ${newJ})`;
+
+      currentPos = { i: newI, j: newJ };
+      currentState = 'reversed';
+
+      statusText.innerHTML = `坐标 <strong>(${originalPos.i}, ${originalPos.j})</strong> 经过翻转最终变为了 <strong>(${currentPos.i}, ${currentPos.j})</strong>.<br>这等同于顺时针旋转了 90 度！`;
+
+      btnReverse.disabled = true;
+    };
+
+    // 重置系统
+    btnReset.onclick = initMatrix;
+
+    // 启动时初始化
+    initMatrix();
+  </script>
+</body>
+
+</html>
