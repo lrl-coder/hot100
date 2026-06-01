@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>双指针删除链表节点演示</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f5f7fa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+      color: #333;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+      width: 100%;
+      max-width: 800px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    .status-box {
+      background: #eef2f6;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #2c3e50;
+      margin-bottom: 40px;
+      min-height: 28px;
+    }
+
+    .list-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 60px 0;
+      gap: 20px;
+    }
+
+    .node {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      background-color: #fff;
+      border: 2px solid #3498db;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 1.2em;
+      position: relative;
+      z-index: 2;
+      transition: all 0.5s ease;
+    }
+
+    .node.dummy {
+      border-color: #95a5a6;
+      background-color: #fdfdfd;
+    }
+
+    .node.null-node {
+      border-color: #95a5a6;
+      border-style: dashed;
+    }
+
+    .node.deleted {
+      opacity: 0.3;
+      transform: translateY(20px);
+      border-color: #e74c3c;
+    }
+
+    .arrow {
+      color: #7f8c8d;
+      font-size: 1.5em;
+      font-weight: bold;
+      transition: all 0.5s ease;
+    }
+
+    .arrow.deleted {
+      opacity: 0;
+    }
+
+    /* 绕过被删除节点的弧线箭头 */
+    .skip-arrow {
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      width: 140px;
+      height: 30px;
+      border: 2px solid #27ae60;
+      border-bottom: none;
+      border-radius: 20px 20px 0 0;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+
+    .skip-arrow::after {
+      content: '▶';
+      position: absolute;
+      right: -6px;
+      bottom: -9px;
+      color: #27ae60;
+      font-size: 16px;
+    }
+
+    .skip-arrow.show {
+      opacity: 1;
+    }
+
+    /* 指针容器与标记 */
+    .pointers {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .pointer {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .pointer-fast {
+      color: #e67e22;
+      top: -45px;
+    }
+
+    .pointer-slow {
+      color: #8e44ad;
+      bottom: -45px;
+    }
+
+    .pointer-label {
+      background: currentColor;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      font-weight: bold;
+    }
+
+    .pointer-fast::after {
+      content: '▼';
+      color: #e67e22;
+      margin-top: -2px;
+    }
+
+    .pointer-slow::before {
+      content: '▲';
+      color: #8e44ad;
+      margin-bottom: -2px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 10px 24px;
+      font-size: 1em;
+      font-weight: bold;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #btn-next {
+      background-color: #3498db;
+    }
+
+    #btn-next:hover {
+      background-color: #2980b9;
+    }
+
+    #btn-next:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+
+    #btn-reset {
+      background-color: #95a5a6;
+    }
+
+    #btn-reset:hover {
+      background-color: #7f8c8d;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h2>删除链表的倒数第 N 个结点 (N = 2)</h2>
+
+    <div class="status-box" id="status-text">
+      初始状态：准备好双指针，均指向 Dummy 节点。
+    </div>
+
+    <div class="list-container" id="list-container">
+      <div class="node dummy" id="node-0">D</div>
+      <div class="arrow" id="arrow-0">→</div>
+      <div class="node" id="node-1">1</div>
+      <div class="arrow" id="arrow-1">→</div>
+      <div class="node" id="node-2">2</div>
+      <div class="arrow" id="arrow-2">→</div>
+      <div class="node" id="node-3" style="position: relative;">
+        3
+        <div class="skip-arrow" id="skip-arrow"></div>
+      </div>
+      <div class="arrow" id="arrow-3">→</div>
+      <div class="node" id="node-4">4</div>
+      <div class="arrow" id="arrow-4">→</div>
+      <div class="node" id="node-5">5</div>
+      <div class="arrow" id="arrow-5">→</div>
+      <div class="node null-node" id="node-6">Null</div>
+
+      <div class="pointers">
+        <div class="pointer pointer-fast" id="ptr-fast">
+          <div class="pointer-label">Fast</div>
+        </div>
+        <div class="pointer pointer-slow" id="ptr-slow">
+          <div class="pointer-label">Slow</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="btn-reset">重 置</button>
+      <button id="btn-next">下一步</button>
+    </div>
+  </div>
+
+  <script>
+    // 定义状态机
+    const states = [
+      { text: "初始状态：创建哑节点(Dummy)，Fast和Slow均指向它。", fast: 0, slow: 0, deleteAction: false },
+      { text: "Fast 先走第 1 步。", fast: 1, slow: 0, deleteAction: false },
+      { text: "Fast 先走第 2 步。", fast: 2, slow: 0, deleteAction: false },
+      { text: "Fast 先走第 3 步 (此时距离 Slow 正好 n+1 步)。", fast: 3, slow: 0, deleteAction: false },
+      { text: "Fast 和 Slow 同时前进。", fast: 4, slow: 1, deleteAction: false },
+      { text: "Fast 和 Slow 同时前进。", fast: 5, slow: 2, deleteAction: false },
+      { text: "Fast 到达 Null。Slow 刚好停在目标节点的前一个节点(节点 3)。", fast: 6, slow: 3, deleteAction: false },
+      { text: "删除操作：slow.next = slow.next.next，跳过节点 4。", fast: 6, slow: 3, deleteAction: true }
+    ];
+
+    let currentState = 0;
+
+    const btnNext = document.getElementById('btn-next');
+    const btnReset = document.getElementById('btn-reset');
+    const statusText = document.getElementById('status-text');
+    const ptrFast = document.getElementById('ptr-fast');
+    const ptrSlow = document.getElementById('ptr-slow');
+    const node4 = document.getElementById('node-4');
+    const arrow3 = document.getElementById('arrow-3');
+    const arrow4 = document.getElementById('arrow-4');
+    const skipArrow = document.getElementById('skip-arrow');
+
+    // 计算指针移动的 X 坐标偏移量
+    function updatePointers(fastIdx, slowIdx) {
+      const containerRect = document.getElementById('list-container').getBoundingClientRect();
+
+      const fastNode = document.getElementById(`node-${fastIdx}`);
+      const slowNode = document.getElementById(`node-${slowIdx}`);
+
+      const fastX = fastNode.getBoundingClientRect().left - containerRect.left + (fastNode.offsetWidth / 2) - (ptrFast.offsetWidth / 2);
+      const slowX = slowNode.getBoundingClientRect().left - containerRect.left + (slowNode.offsetWidth / 2) - (ptrSlow.offsetWidth / 2);
+
+      ptrFast.style.transform = `translateX(${fastX}px)`;
+      ptrSlow.style.transform = `translateX(${slowX}px)`;
+    }
+
+    function renderState() {
+      const state = states[currentState];
+      statusText.innerText = state.text;
+
+      updatePointers(state.fast, state.slow);
+
+      // 处理最后一步的删除动画
+      if (state.deleteAction) {
+        node4.classList.add('deleted');
+        arrow3.classList.add('deleted');
+        skipArrow.classList.add('show');
+        btnNext.disabled = true;
+        btnNext.innerText = "已完成";
+      } else {
+        node4.classList.remove('deleted');
+        arrow3.classList.remove('deleted');
+        skipArrow.classList.remove('show');
+        btnNext.disabled = false;
+        btnNext.innerText = "下一步";
+      }
+    }
+
+    btnNext.addEventListener('click', () => {
+      if (currentState < states.length - 1) {
+        currentState++;
+        renderState();
+      }
+    });
+
+    btnReset.addEventListener('click', () => {
+      currentState = 0;
+      renderState();
+    });
+
+    // 页面加载和窗口大小改变时初始化位置
+    window.addEventListener('load', renderState);
+    window.addEventListener('resize', renderState);
+  </script>
+
+</body>
+
+</html>
