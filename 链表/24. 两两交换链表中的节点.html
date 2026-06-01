@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>两两交换链表节点 - 双解法可视化对比</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    p.subtitle {
+      color: #666;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+
+    .mode-switch {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 0;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .mode-btn {
+      padding: 10px 25px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      background-color: #ddd;
+      color: #555;
+      transition: all 0.3s;
+      font-weight: bold;
+    }
+
+    .mode-btn.active {
+      background-color: #2ecc71;
+      color: white;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 800px;
+      height: 260px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .node {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      background: #fff;
+      border: 2px solid #4a90e2;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      transition: all 0.5s ease;
+      z-index: 10;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .node.dummy {
+      border-color: #f39c12;
+      background: #fdf5e6;
+    }
+
+    .node.highlight {
+      box-shadow: 0 0 15px #f39c12;
+      transform: scale(1.1);
+    }
+
+    .node.magic {
+      border-color: #9b59b6;
+      background: #f4e8fa;
+    }
+
+    svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    path {
+      fill: none;
+      stroke: #95a5a6;
+      stroke-width: 3;
+      transition: all 0.5s ease;
+      marker-end: url(#arrow);
+    }
+
+    path.active-path {
+      stroke: #e74c3c;
+      stroke-width: 4;
+    }
+
+    path.magic-path {
+      stroke: #9b59b6;
+      stroke-width: 4;
+      stroke-dasharray: 5, 5;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    button.ctrl-btn {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background-color: #4a90e2;
+      color: white;
+      transition: background 0.3s;
+    }
+
+    button.ctrl-btn:hover {
+      background-color: #357abd;
+    }
+
+    button.ctrl-btn:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+
+    .code-panel {
+      background: #282c34;
+      color: #abb2bf;
+      padding: 15px;
+      border-radius: 8px;
+      width: 770px;
+      font-family: Consolas, monospace;
+      font-size: 16px;
+      line-height: 1.5;
+      display: none;
+    }
+
+    .code-panel.active {
+      display: block;
+    }
+
+    .code-line {
+      padding: 2px 5px;
+      border-radius: 3px;
+      transition: background 0.3s;
+    }
+
+    .active-code {
+      background: rgba(229, 192, 123, 0.3);
+      color: #e5c07b;
+      font-weight: bold;
+      border-left: 4px solid #e5c07b;
+    }
+
+    .label {
+      position: absolute;
+      font-size: 14px;
+      font-weight: bold;
+      color: #e74c3c;
+      transition: all 0.5s ease;
+      z-index: 20;
+      text-align: center;
+      width: 60px;
+      opacity: 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>LeetCode 24: 两两交换链表中的节点</h2>
+  <p class="subtitle">观察两种不同心智模型的指针变化</p>
+
+  <div class="mode-switch">
+    <button class="mode-btn active" id="tab-iter" onclick="switchMode('iter')">迭代法 (改良命名)</button>
+    <button class="mode-btn" id="tab-recur" onclick="switchMode('recur')">递归法 (甩锅法)</button>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-prev" onclick="prevStep()" disabled>上一步</button>
+    <button class="ctrl-btn" id="btn-next" onclick="nextStep()">下一步</button>
+    <button class="ctrl-btn" id="btn-reset" onclick="reset()">重置</button>
+  </div>
+
+  <div class="canvas-container" id="canvas">
+    <svg id="svg-layer">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
+        </marker>
+      </defs>
+    </svg>
+
+    <div class="node dummy" id="node-dummy">D</div>
+    <div class="node" id="node-1">1</div>
+    <div class="node" id="node-2">2</div>
+    <div class="node" id="node-3">3</div>
+    <div class="node" id="node-4">4</div>
+
+    <div class="label" id="label-curr">curr</div>
+    <div class="label" id="label-head">head</div>
+    <div class="label" id="label-n1">node1</div>
+    <div class="label" id="label-n2">node2</div>
+  </div>
+
+  <div class="code-panel active" id="code-iter">
+    <div class="code-line" id="i-0">while curr.next and curr.next.next:</div>
+    <div class="code-line" id="i-1"> node1 = curr.next</div>
+    <div class="code-line" id="i-2"> node2 = curr.next.next</div>
+    <div class="code-line" id="i-3"> curr.next = node2 <span style="color:#7f848e">// 步骤A: dummy 连向 2</span></div>
+    <div class="code-line" id="i-4"> node1.next = node2.next <span style="color:#7f848e">// 步骤B: 1 连向 3</span></div>
+    <div class="code-line" id="i-5"> node2.next = node1 <span style="color:#7f848e">// 步骤C: 2 连向 1</span></div>
+    <div class="code-line" id="i-6"> curr = node1 <span style="color:#7f848e">// 前进，准备下一轮</span></div>
+  </div>
+
+  <div class="code-panel" id="code-recur">
+    <div class="code-line" id="r-0">if not head or not head.next: return head</div>
+    <div class="code-line" id="r-1">node1 = head</div>
+    <div class="code-line" id="r-2">node2 = head.next</div>
+    <div class="code-line" id="r-3">node1.next = self.swapPairs(node2.next) <span style="color:#7f848e">// 甩锅:
+        递归处理剩下的链表，1连向其结果</span></div>
+    <div class="code-line" id="r-4">node2.next = node1 <span style="color:#7f848e">// 反转: 2 连向 1</span></div>
+    <div class="code-line" id="r-5">return node2 <span style="color:#7f848e">// 返回当前层新的头节点 2</span></div>
+  </div>
+
+  <script>
+    let currentMode = 'iter'; // 'iter' or 'recur'
+    let currentStep = 0;
+
+    const pos = { dummy: 50, n1: 200, n2: 350, n3: 500, n4: 650 };
+    const Y = 100;
+
+    const domNodes = {
+      dummy: document.getElementById('node-dummy'),
+      n1: document.getElementById('node-1'),
+      n2: document.getElementById('node-2'),
+      n3: document.getElementById('node-3'),
+      n4: document.getElementById('node-4')
+    };
+    const domLabels = {
+      curr: document.getElementById('label-curr'),
+      head: document.getElementById('label-head'),
+      n1: document.getElementById('label-n1'),
+      n2: document.getElementById('label-n2')
+    };
+
+    function getPath(x1, y1, x2, y2, curveOffset = 0) {
+      if (curveOffset === 0) return `M ${x1 + 30} ${y1} L ${x2 - 35} ${y2}`;
+      const midX = (x1 + x2) / 2;
+      return `M ${x1 + 30} ${y1} Q ${midX} ${y1 + curveOffset} ${x2} ${y2 + (curveOffset > 0 ? 35 : -35)}`;
+    }
+
+    // ====== 迭代法步骤定义 ======
+    const stepsIter = [
+      { codeId: 'i-0', layout: { dummy: pos.dummy, n1: pos.n1, n2: pos.n2, n3: pos.n3, n4: pos.n4 }, labels: { curr: 'dummy', head: null, n1: null, n2: null }, links: [{ from: 'dummy', to: 'n1', curve: 0 }, { from: 'n1', to: 'n2', curve: 0 }, { from: 'n2', to: 'n3', curve: 0 }, { from: 'n3', to: 'n4', curve: 0 }], highlights: ['dummy'], showDummy: true },
+      { codeId: 'i-1', layout: { dummy: pos.dummy, n1: pos.n1, n2: pos.n2, n3: pos.n3, n4: pos.n4 }, labels: { curr: 'dummy', head: null, n1: 'n1', n2: 'n2' }, links: [{ from: 'dummy', to: 'n1', curve: 0 }, { from: 'n1', to: 'n2', curve: 0 }, { from: 'n2', to: 'n3', curve: 0 }, { from: 'n3', to: 'n4', curve: 0 }], highlights: ['dummy', 'n1', 'n2'], showDummy: true },
+      { codeId: 'i-3', layout: { dummy: pos.dummy, n1: pos.n1, n2: pos.n2, n3: pos.n3, n4: pos.n4 }, labels: { curr: 'dummy', head: null, n1: 'n1', n2: 'n2' }, links: [{ from: 'dummy', to: 'n2', curve: -60, active: true }, { from: 'n1', to: 'n2', curve: 0 }, { from: 'n2', to: 'n3', curve: 0 }, { from: 'n3', to: 'n4', curve: 0 }], highlights: ['dummy', 'n2'], showDummy: true },
+      { codeId: 'i-4', layout: { dummy: pos.dummy, n1: pos.n1, n2: pos.n2, n3: pos.n3, n4: pos.n4 }, labels: { curr: 'dummy', head: null, n1: 'n1', n2: 'n2' }, links: [{ from: 'dummy', to: 'n2', curve: -60 }, { from: 'n1', to: 'n3', curve: 60, active: true }, { from: 'n2', to: 'n3', curve: 0 }, { from: 'n3', to: 'n4', curve: 0 }], highlights: ['n1', 'n3'], showDummy: true },
+      { codeId: 'i-5', layout: { dummy: pos.dummy, n1: pos.n1, n2: pos.n2, n3: pos.n3, n4: pos.n4 }, labels: { curr: 'dummy', head: null, n1: 'n1', n2: 'n2' }, links: [{ from: 'dummy', to: 'n2', curve: -60 }, { from: 'n1', to: 'n3', curve: 60 }, { from: 'n2', to: 'n1', curve: -50, active: true }, { from: 'n3', to: 'n4', curve: 0 }], highlights: ['n2', 'n1'], showDummy: true },
+      { codeId: 'i-6', layout: { dummy: pos.dummy, n2: pos.n1, n1: pos.n2, n3: pos.n3, n4: pos.n4 }, labels: { curr: 'n1', head: null, n1: 'n1', n2: 'n2' }, links: [{ from: 'dummy', to: 'n2', curve: 0 }, { from: 'n2', to: 'n1', curve: 0 }, { from: 'n1', to: 'n3', curve: 0 }, { from: 'n3', to: 'n4', curve: 0 }], highlights: ['n1'], showDummy: true }
+    ];
+
+    // ====== 递归法步骤定义 ======
+    const stepsRecur = [
+      { codeId: 'r-0', layout: { n1: pos.dummy, n2: pos.n1, n3: pos.n2, n4: pos.n3 }, labels: { curr: null, head: 'n1', n1: null, n2: null }, links: [{ from: 'n1', to: 'n2', curve: 0 }, { from: 'n2', to: 'n3', curve: 0 }, { from: 'n3', to: 'n4', curve: 0 }], highlights: ['n1'], showDummy: false, magicNodes: [] },
+      { codeId: 'r-1', layout: { n1: pos.dummy, n2: pos.n1, n3: pos.n2, n4: pos.n3 }, labels: { curr: null, head: 'n1', n1: 'n1', n2: 'n2' }, links: [{ from: 'n1', to: 'n2', curve: 0 }, { from: 'n2', to: 'n3', curve: 0 }, { from: 'n3', to: 'n4', curve: 0 }], highlights: ['n1', 'n2'], showDummy: false, magicNodes: [] },
+      { codeId: 'r-3', layout: { n1: pos.dummy, n2: pos.n1, n4: pos.n2, n3: pos.n3 }, labels: { curr: null, head: 'n1', n1: 'n1', n2: 'n2' }, links: [{ from: 'n1', to: 'n4', curve: 60, magic: true }, { from: 'n2', to: 'n4', curve: 0, style: 'opacity:0.3' }, { from: 'n4', to: 'n3', curve: 0 }], highlights: ['n1', 'n4'], showDummy: false, magicNodes: ['n3', 'n4'] },
+      { codeId: 'r-4', layout: { n1: pos.dummy, n2: pos.n1, n4: pos.n2, n3: pos.n3 }, labels: { curr: null, head: 'n1', n1: 'n1', n2: 'n2' }, links: [{ from: 'n1', to: 'n4', curve: 60 }, { from: 'n2', to: 'n1', curve: -60, active: true }, { from: 'n4', to: 'n3', curve: 0 }], highlights: ['n2', 'n1'], showDummy: false, magicNodes: [] },
+      { codeId: 'r-5', layout: { n2: pos.dummy, n1: pos.n1, n4: pos.n2, n3: pos.n3 }, labels: { curr: null, head: 'n1', n1: 'n1', n2: 'n2' }, links: [{ from: 'n2', to: 'n1', curve: 0 }, { from: 'n1', to: 'n4', curve: 0 }, { from: 'n4', to: 'n3', curve: 0 }], highlights: ['n2'], showDummy: false, magicNodes: [] }
+    ];
+
+    function renderStep() {
+      const steps = currentMode === 'iter' ? stepsIter : stepsRecur;
+      const step = steps[currentStep];
+
+      // 1. 虚拟头节点显示/隐藏 (递归法不需要虚拟头)
+      domNodes.dummy.style.opacity = step.showDummy ? 1 : 0;
+
+      // 2. 更新节点位置与样式
+      ['n1', 'n2', 'n3', 'n4'].forEach(key => {
+        domNodes[key].style.left = step.layout[key] + 'px';
+        domNodes[key].style.top = Y + 'px';
+        domNodes[key].classList.remove('highlight', 'magic');
+      });
+      if (step.showDummy) {
+        domNodes.dummy.style.left = step.layout.dummy + 'px';
+        domNodes.dummy.classList.remove('highlight');
+      }
+
+      if (step.highlights) step.highlights.forEach(key => domNodes[key].classList.add('highlight'));
+      if (step.magicNodes) step.magicNodes.forEach(key => domNodes[key].classList.add('magic'));
+
+      // 3. 更新标签
+      for (const [labelKey, targetNodeKey] of Object.entries(step.labels)) {
+        const labelEl = domLabels[labelKey];
+        if (targetNodeKey) {
+          labelEl.style.opacity = 1;
+          labelEl.style.left = step.layout[targetNodeKey] + 'px';
+          labelEl.style.top = (labelKey === 'curr' || labelKey === 'head') ? (Y - 35) + 'px' : (Y + 70) + 'px';
+        } else {
+          labelEl.style.opacity = 0;
+        }
+      }
+
+      // 4. 更新连线 SVG
+      let svgContent = `<defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
+            </marker>
+        </defs>`;
+
+      step.links.forEach(link => {
+        const x1 = step.layout[link.from];
+        const x2 = step.layout[link.to];
+        let classes = '';
+        if (link.active) classes = 'active-path';
+        if (link.magic) classes = 'magic-path'; // 甩锅特殊连线
+        const style = link.style ? `style="${link.style}"` : '';
+        svgContent += `<path class="${classes}" ${style} d="${getPath(x1, Y + 30, x2, Y + 30, link.curve)}" />`;
+      });
+      document.getElementById('svg-layer').innerHTML = svgContent;
+
+      // 5. 更新代码高亮
+      document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active-code'));
+      if (step.codeId) {
+        if (step.codeId === 'i-1') {
+          document.getElementById('i-1').classList.add('active-code');
+          document.getElementById('i-2').classList.add('active-code');
+        } else if (step.codeId === 'r-1') {
+          document.getElementById('r-1').classList.add('active-code');
+          document.getElementById('r-2').classList.add('active-code');
+        } else {
+          document.getElementById(step.codeId).classList.add('active-code');
+        }
+      }
+
+      // 6. 按钮状态
+      document.getElementById('btn-prev').disabled = currentStep === 0;
+      document.getElementById('btn-next').disabled = currentStep === steps.length - 1;
+    }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      currentStep = 0;
+
+      document.getElementById('tab-iter').classList.toggle('active', mode === 'iter');
+      document.getElementById('tab-recur').classList.toggle('active', mode === 'recur');
+
+      document.getElementById('code-iter').classList.toggle('active', mode === 'iter');
+      document.getElementById('code-recur').classList.toggle('active', mode === 'recur');
+
+      renderStep();
+    }
+
+    function nextStep() {
+      const max = currentMode === 'iter' ? stepsIter.length - 1 : stepsRecur.length - 1;
+      if (currentStep < max) {
+        currentStep++;
+        renderStep();
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 0) {
+        currentStep--;
+        renderStep();
+      }
+    }
+
+    function reset() {
+      currentStep = 0;
+      renderStep();
+    }
+
+    window.onload = () => switchMode('iter');
+  </script>
+</body>
+
+</html>
