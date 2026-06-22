@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>旋转数组二分查找算法可视化</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      display: flex;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      gap: 30px;
+      max-width: 1200px;
+      width: 95%;
+    }
+
+    .visualization-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .code-panel {
+      width: 420px;
+      background: #282c34;
+      color: #abb2bf;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 20px;
+      color: #2c3e50;
+    }
+
+    /* 控制区 */
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+      align-items: center;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input {
+      padding: 8px;
+      width: 60px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      background-color: #3498db;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    button:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+
+    /* 状态说明区 */
+    .status-box {
+      margin-top: 20px;
+      padding: 15px;
+      background: #e8f4fd;
+      border-left: 5px solid #3498db;
+      border-radius: 4px;
+      width: 100%;
+      min-height: 60px;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    /* 代码高亮行 */
+    .code-line {
+      padding: 2px 10px;
+      border-radius: 4px;
+      margin: 2px 0;
+      transition: background 0.3s;
+      white-space: pre;
+    }
+
+    .code-line.active {
+      background-color: #3e4451;
+      border-left: 4px solid #98c379;
+      color: #fff;
+    }
+
+    .keyword {
+      color: #c678dd;
+    }
+
+    .variable {
+      color: #e06c75;
+    }
+
+    .function {
+      color: #61afef;
+    }
+
+    .comment {
+      color: #7f848e;
+      font-style: italic;
+    }
+
+    .number {
+      color: #d19a66;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <div class="visualization-panel">
+      <h2>搜索旋转排序数组 (红蓝高地模型)</h2>
+      <svg id="chart" width="550" height="350"></svg>
+
+      <div class="controls">
+        <div class="input-group">
+          <label for="target-input">目标值 Target:</label>
+          <input type="number" id="target-input" value="0">
+        </div>
+        <button id="btn-start">重新开始</button>
+        <button id="btn-step" disabled>单步推演 ⏭</button>
+      </div>
+
+      <div class="status-box" id="status-text">
+        准备就绪。输入目标值，点击“重新开始”以生成推演路径。
+      </div>
+    </div>
+
+    <div class="code-panel" id="code-container">
+    </div>
+  </div>
+
+  <script>
+    // === 核心数据与状态 ===
+    const nums = [4, 5, 6, 7, 0, 1, 2];
+    const SVG_WIDTH = 550;
+    const SVG_HEIGHT = 350;
+    const PADDING = 40;
+    const CHART_H = SVG_HEIGHT - 80;
+
+    let frames = [];
+    let currentFrame = 0;
+
+    // 代码模板
+    const codeLines = [
+        /* 0 */ "<span class='keyword'>def</span> <span class='function'>search</span>(nums, target):",
+        /* 1 */ "    left, right = <span class='number'>0</span>, <span class='function'>len</span>(nums) - <span class='number'>1</span>",
+        /* 2 */ "    <span class='keyword'>while</span> left <= right:",
+        /* 3 */ "        mid = (left + right) // <span class='number'>2</span>",
+        /* 4 */ "        <span class='keyword'>if</span> nums[mid] == target:",
+        /* 5 */ "            <span class='keyword'>return</span> mid",
+        /* 6 */ "        <span class='comment'># 判断左半边是否绝对有序</span>",
+        /* 7 */ "        <span class='keyword'>if</span> nums[left] <= nums[mid]:",
+        /* 8 */ "            <span class='keyword'>if</span> nums[left] <= target < nums[mid]:",
+        /* 9 */ "                right = mid - <span class='number'>1</span>",
+        /* 10 */"            <span class='keyword'>else</span>:",
+        /* 11 */"                left = mid + <span class='number'>1</span>",
+        /* 12 */"        <span class='comment'># 否则，右半边绝对有序</span>",
+        /* 13 */"        <span class='keyword'>else</span>:",
+        /* 14 */"            <span class='keyword'>if</span> nums[mid] < target <= nums[right]:",
+        /* 15 */"                left = mid + <span class='number'>1</span>",
+        /* 16 */"            <span class='keyword'>else</span>:",
+        /* 17 */"                right = mid - <span class='number'>1</span>",
+        /* 18 */"    <span class='keyword'>return</span> -<span class='number'>1</span>"
+    ];
+
+    // 初始化渲染代码面板
+    const codeContainer = document.getElementById("code-container");
+    codeLines.forEach((line, index) => {
+      const div = document.createElement("div");
+      div.className = "code-line";
+      div.id = `code-${index}`;
+      div.innerHTML = line;
+      codeContainer.appendChild(div);
+    });
+
+    // 初始化 SVG
+    const svg = d3.select("#chart");
+    const xScale = d3.scaleBand().domain(d3.range(nums.length)).range([PADDING, SVG_WIDTH - PADDING]).padding(0.2);
+    const yScale = d3.scaleLinear().domain([0, 7]).range([CHART_H, PADDING]);
+
+    const barGroup = svg.append("g");
+    const pointerGroup = svg.append("g");
+    const annotationGroup = svg.append("g");
+
+    // === 生成推演帧 (状态机) ===
+    function generateFrames(target) {
+      frames = [];
+      let left = 0;
+      let right = nums.length - 1;
+
+      function snapshot(L, R, M, activeCodeLines, msg, highlightZone = null) {
+        frames.push({ left: L, right: R, mid: M, code: activeCodeLines, msg, zone: highlightZone });
+      }
+
+      snapshot(left, right, null, [1, 2], `初始状态: left = ${left}, right = ${right}。目标寻找 Target = ${target}`);
+
+      while (left <= right) {
+        let mid = Math.floor((left + right) / 2);
+        snapshot(left, right, mid, [3], `计算中心点: mid = ${mid} (值为 ${nums[mid]})`);
+
+        snapshot(left, right, mid, [4], `检查是否命中: nums[${mid}] == ${target} 吗？`);
+        if (nums[mid] === target) {
+          snapshot(left, right, mid, [5], `🎯 命中目标！返回索引 ${mid}。`, 'success');
+          return;
+        }
+
+        snapshot(left, right, mid, [7], `核心判定 1: 左半区间 [${left}..${mid}] 是否绝对有序？(nums[left] <= nums[mid]?)`);
+        if (nums[left] <= nums[mid]) {
+          snapshot(left, right, mid, [7], `✅ 是的，${nums[left]} <= ${nums[mid]}。左半边是绝对有序的标尺！`, 'left-sorted');
+
+          snapshot(left, right, mid, [8], `判定: 目标 ${target} 是否在这个标尺范围内？(${nums[left]} <= ${target} < ${nums[mid]}?)`);
+          if (nums[left] <= target && target < nums[mid]) {
+            right = mid - 1;
+            snapshot(left, right, mid, [9], `✅ 在范围内！抛弃右侧，右边界左缩至 right = ${right}。`);
+          } else {
+            left = mid + 1;
+            snapshot(left, right, mid, [10, 11], `❌ 不在范围内！抛弃左侧标尺，左边界右推至 left = ${left}。`);
+          }
+        } else {
+          snapshot(left, right, mid, [13], `❌ 否。说明断崖在左边。因此，右半区间 [${mid}..${right}] 必然绝对有序！`, 'right-sorted');
+
+          snapshot(left, right, mid, [14], `判定: 目标 ${target} 是否在右侧标尺范围内？(${nums[mid]} < ${target} <= ${nums[right]}?)`);
+          if (nums[mid] < target && target <= nums[right]) {
+            left = mid + 1;
+            snapshot(left, right, mid, [15], `✅ 在范围内！抛弃左侧，左边界右推至 left = ${left}。`);
+          } else {
+            right = mid - 1;
+            snapshot(left, right, mid, [16, 17], `❌ 不在范围内！抛弃右侧标尺，右边界左缩至 right = ${right}。`);
+          }
+        }
+
+        if (left <= right) {
+          snapshot(left, right, null, [2], `进入下一轮循环，当前有效区间 [${left}..${right}]`);
+        }
+      }
+
+      snapshot(left, right, null, [18], `循环结束，区间内未找到目标。返回 -1。`);
+    }
+
+    // === 渲染核心 ===
+    function renderFrame(frameIndex) {
+      const frame = frames[frameIndex];
+
+      // 1. 更新状态文字
+      document.getElementById("status-text").innerHTML = frame.msg;
+
+      // 2. 更新代码高亮
+      document.querySelectorAll(".code-line").forEach(el => el.classList.remove("active"));
+      frame.code.forEach(lineIdx => {
+        document.getElementById(`code-${lineIdx}`).classList.add("active");
+      });
+
+      // 3. 渲染柱状图 (高地与低谷)
+      const bars = barGroup.selectAll("rect").data(nums);
+      bars.enter().append("rect")
+        .merge(bars)
+        .attr("x", (d, i) => xScale(i))
+        .attr("y", d => yScale(d))
+        .attr("width", xScale.bandwidth())
+        .attr("height", d => CHART_H - yScale(d))
+        .attr("rx", 4)
+        .attr("fill", (d, i) => {
+          // 不在搜索区间内的变灰
+          if (i < frame.left || i > frame.right) return "#e0e0e0";
+          // 命中目标
+          if (frame.zone === 'success' && i === frame.mid) return "#e74c3c";
+          // 突出显示当前 mid
+          if (i === frame.mid) return "#f39c12";
+          return "#3498db";
+        })
+        .style("opacity", (d, i) => (i < frame.left || i > frame.right) ? 0.3 : 1)
+        .transition().duration(300);
+
+      // 柱子上的文字
+      const texts = barGroup.selectAll("text.val").data(nums);
+      texts.enter().append("text").attr("class", "val")
+        .merge(texts)
+        .attr("x", (d, i) => xScale(i) + xScale.bandwidth() / 2)
+        .attr("y", d => yScale(d) - 5)
+        .attr("text-anchor", "middle")
+        .text(d => d)
+        .attr("fill", (d, i) => (i < frame.left || i > frame.right) ? "#aaa" : "#333")
+        .style("font-weight", "bold");
+
+      // 4. 渲染底部的索引
+      const indices = barGroup.selectAll("text.idx").data(nums);
+      indices.enter().append("text").attr("class", "idx")
+        .merge(indices)
+        .attr("x", (d, i) => xScale(i) + xScale.bandwidth() / 2)
+        .attr("y", CHART_H + 20)
+        .attr("text-anchor", "middle")
+        .text((d, i) => `i=${i}`)
+        .attr("fill", "#7f8c8d")
+        .style("font-size", "12px");
+
+      // 5. 渲染指针 (L, M, R)
+      pointerGroup.selectAll("*").remove();
+      const drawPointer = (idx, label, color, yOffset) => {
+        if (idx === null || idx < 0 || idx >= nums.length) return;
+        const x = xScale(idx) + xScale.bandwidth() / 2;
+        const y = CHART_H + 35 + yOffset;
+
+        pointerGroup.append("path")
+          .attr("d", d3.symbol().type(d3.symbolTriangle).size(60))
+          .attr("transform", `translate(${x}, ${y}) rotate(180)`)
+          .attr("fill", color);
+
+        pointerGroup.append("text")
+          .attr("x", x).attr("y", y + 15)
+          .attr("text-anchor", "middle")
+          .text(label).attr("fill", color)
+          .style("font-weight", "bold").style("font-size", "14px");
+      };
+
+      drawPointer(frame.left, "L", "#27ae60", 0);
+      drawPointer(frame.right, "R", "#e74c3c", 20);
+      drawPointer(frame.mid, "M", "#f39c12", 40);
+
+      // 6. 渲染区间高亮框 (用于解释哪一半绝对有序)
+      annotationGroup.selectAll("*").remove();
+      if (frame.zone === 'left-sorted') {
+        annotationGroup.append("rect")
+          .attr("x", xScale(frame.left))
+          .attr("y", 10).attr("width", xScale(frame.mid) - xScale(frame.left) + xScale.bandwidth())
+          .attr("height", CHART_H + 20).attr("fill", "rgba(46, 204, 113, 0.1)")
+          .attr("stroke", "#2ecc71").attr("stroke-width", 2).attr("stroke-dasharray", "5,5").attr("rx", 5);
+      } else if (frame.zone === 'right-sorted') {
+        annotationGroup.append("rect")
+          .attr("x", xScale(frame.mid))
+          .attr("y", 10).attr("width", xScale(frame.right) - xScale(frame.mid) + xScale.bandwidth())
+          .attr("height", CHART_H + 20).attr("fill", "rgba(155, 89, 182, 0.1)")
+          .attr("stroke", "#9b59b6").attr("stroke-width", 2).attr("stroke-dasharray", "5,5").attr("rx", 5);
+      }
+
+      // 更新按钮状态
+      document.getElementById("btn-step").disabled = (frameIndex === frames.length - 1);
+    }
+
+    // === 事件绑定 ===
+    document.getElementById("btn-start").addEventListener("click", () => {
+      const target = parseInt(document.getElementById("target-input").value);
+      if (isNaN(target)) return;
+      generateFrames(target);
+      currentFrame = 0;
+      document.getElementById("btn-step").disabled = false;
+      renderFrame(0);
+    });
+
+    document.getElementById("btn-step").addEventListener("click", () => {
+      if (currentFrame < frames.length - 1) {
+        currentFrame++;
+        renderFrame(currentFrame);
+      }
+    });
+
+    // 初始展示空状态
+    renderFrame({ left: 0, right: 6, mid: null, code: [], msg: "准备就绪。输入目标值，点击“重新开始”以生成推演路径。" });
+
+  </script>
+</body>
+
+</html>
