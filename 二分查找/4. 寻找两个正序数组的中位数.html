@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>寻找两个正序数组的中位数 - 一刀切算法可视化</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      max-width: 900px;
+      width: 95%;
+      align-items: center;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 22px;
+      color: #2c3e50;
+      text-align: center;
+    }
+
+    .desc {
+      color: #7f8c8d;
+      font-size: 14px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* 控制区 */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+      align-items: center;
+      width: 100%;
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      width: 80%;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      cursor: pointer;
+    }
+
+    .label-val {
+      font-weight: bold;
+      color: #2980b9;
+      width: 120px;
+    }
+
+    /* 状态说明区 */
+    .status-box {
+      margin-top: 20px;
+      padding: 15px 25px;
+      border-radius: 6px;
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .status-error {
+      background: #fdeaea;
+      border-left: 6px solid #e74c3c;
+      color: #c0392b;
+    }
+
+    .status-success {
+      background: #eafaf1;
+      border-left: 6px solid #2ecc71;
+      color: #27ae60;
+    }
+
+    .formula {
+      font-family: monospace;
+      font-size: 15px;
+      background: #eee;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h2>寻找中位数：交叉小等定律 (一刀切)</h2>
+    <div class="desc">总长度为 11，左半边需要分配 (5 + 6 + 1) // 2 = 6 个元素。<br>拖动滑块改变 nums1 的切割位置，nums2 会自动联动。</div>
+
+    <div class="controls">
+      <div class="slider-container">
+        <span>nums1 切割点 <b>i</b> :</span>
+        <input type="range" id="slider-i" min="0" max="5" step="1" value="3">
+        <span class="label-val" id="val-i">i = 3</span>
+      </div>
+      <div class="slider-container" style="opacity: 0.7;">
+        <span>nums2 切割点 <b>j</b> :</span>
+        <input type="range" id="slider-j" min="1" max="6" step="1" value="3" disabled>
+        <span class="label-val" id="val-j">j = 6 - i = 3</span>
+      </div>
+    </div>
+
+    <svg id="chart" width="700" height="280"></svg>
+
+    <div class="status-box status-error" id="status-text">
+      请拖动滑块开始探索。
+    </div>
+  </div>
+
+  <script>
+    // 数据集
+    const nums1 = [1, 3, 8, 9, 15];
+    const nums2 = [7, 11, 18, 19, 21, 25];
+    const m = nums1.length;
+    const n = nums2.length;
+    const leftTotal = Math.floor((m + n + 1) / 2); // 6
+
+    // SVG 配置
+    const svg = d3.select("#chart");
+    const CELL_SIZE = 50;
+    const SPACING = 5;
+    const OFFSET_X = 100;
+    const ROW1_Y = 50;
+    const ROW2_Y = 180;
+
+    // 格式化无穷大
+    const formatVal = (val) => {
+      if (val === -Infinity) return "-∞";
+      if (val === Infinity) return "+∞";
+      return val;
+    };
+
+    function render(i) {
+      const j = leftTotal - i;
+
+      // 临界值计算
+      const L1 = i === 0 ? -Infinity : nums1[i - 1];
+      const R1 = i === m ? Infinity : nums1[i];
+      const L2 = j === 0 ? -Infinity : nums2[j - 1];
+      const R2 = j === n ? Infinity : nums2[j];
+
+      // 判定逻辑
+      let isSuccess = false;
+      let msg = "";
+      let boxClass = "status-error";
+
+      if (L1 <= R2 && L2 <= R1) {
+        isSuccess = true;
+        boxClass = "status-success";
+        const median = Math.max(L1, L2); // 奇数长度，取左半边最大值
+        msg = `🎉 完美切割！<br><span class="formula">L1(${formatVal(L1)}) &le; R2(${formatVal(R2)})</span> 且 <span class="formula">L2(${formatVal(L2)}) &le; R1(${formatVal(R1)})</span><br><br>总长度为奇数，中位数 = 左半部分最大值 = max(${formatVal(L1)}, ${formatVal(L2)}) = <b>${median}</b>`;
+      } else if (L1 > R2) {
+        msg = `❌ 交叉校验失败：<span class="formula">L1(${L1}) > R2(${R2})</span><br>说明 nums1 的左边分得太大了，切割线 <b>i 必须向左移！</b>`;
+      } else {
+        msg = `❌ 交叉校验失败：<span class="formula">L2(${L2}) > R1(${R1})</span><br>说明 nums2 的左边太大了，导致 nums1 分得太少，切割线 <b>i 必须向右移！</b>`;
+      }
+
+      // 更新 UI
+      document.getElementById("val-i").innerText = `i = ${i}`;
+      document.getElementById("val-j").innerText = `j = 6 - ${i} = ${j}`;
+      document.getElementById("slider-j").value = j;
+
+      const statusBox = document.getElementById("status-text");
+      statusBox.className = `status-box ${boxClass}`;
+      statusBox.innerHTML = msg;
+
+      // 清空画布重新绘制
+      svg.selectAll("*").remove();
+
+      // 绘制行函数
+      const drawRow = (data, yPos, cutIdx, labelPrefix) => {
+        const rowGroup = svg.append("g").attr("transform", `translate(${OFFSET_X}, ${yPos})`);
+
+        // 绘制方块
+        const cells = rowGroup.selectAll("g.cell").data(data).enter().append("g")
+          .attr("transform", (d, idx) => `translate(${idx * (CELL_SIZE + SPACING)}, 0)`);
+
+        cells.append("rect")
+          .attr("width", CELL_SIZE)
+          .attr("height", CELL_SIZE)
+          .attr("rx", 6)
+          .attr("fill", (d, idx) => {
+            if (isSuccess) return idx < cutIdx ? "#82ccdd" : "#f8c291"; // 成功时全亮
+            return idx < cutIdx ? "#a4b0be" : "#ced6e0"; // 失败时暗色
+          })
+          .attr("stroke", (d, idx) => {
+            if (isSuccess) return idx < cutIdx ? "#3dc1d3" : "#e15f41";
+            return "none";
+          })
+          .attr("stroke-width", 2);
+
+        cells.append("text")
+          .attr("x", CELL_SIZE / 2)
+          .attr("y", CELL_SIZE / 2 + 6)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "18px")
+          .attr("font-weight", "bold")
+          .attr("fill", "#2f3640")
+          .text(d => d);
+
+        // 绘制切割线
+        const cutX = cutIdx * (CELL_SIZE + SPACING) - SPACING / 2;
+        rowGroup.append("line")
+          .attr("x1", cutX).attr("y1", -20)
+          .attr("x2", cutX).attr("y2", CELL_SIZE + 20)
+          .attr("stroke", "#e84118").attr("stroke-width", 4)
+          .attr("stroke-dasharray", "5,5");
+
+        // 标注 Lx 和 Rx
+        if (cutIdx > 0) {
+          rowGroup.append("text")
+            .attr("x", cutX - 25).attr("y", -10)
+            .attr("text-anchor", "middle").attr("fill", "#c23616")
+            .attr("font-weight", "bold").text(`${labelPrefix}1`);
+        } else {
+          rowGroup.append("text")
+            .attr("x", cutX - 25).attr("y", CELL_SIZE / 2 + 5)
+            .attr("text-anchor", "middle").attr("fill", "#c23616")
+            .attr("font-weight", "bold").text(`${labelPrefix}1=-∞`);
+        }
+
+        if (cutIdx < data.length) {
+          rowGroup.append("text")
+            .attr("x", cutX + 25).attr("y", -10)
+            .attr("text-anchor", "middle").attr("fill", "#273c75")
+            .attr("font-weight", "bold").text(`${labelPrefix}2`);
+        } else {
+          rowGroup.append("text")
+            .attr("x", cutX + 25).attr("y", CELL_SIZE / 2 + 5)
+            .attr("text-anchor", "middle").attr("fill", "#273c75")
+            .attr("font-weight", "bold").text(`${labelPrefix}2=+∞`);
+        }
+      };
+
+      drawRow(nums1, ROW1_Y, i, "L1/R"); // 标签为 L1, R1
+      drawRow(nums2, ROW2_Y, j, "L2/R"); // 标签为 L2, R2
+
+      // 修正标签名称显示
+      svg.selectAll("text").text(function (d) {
+        let txt = d3.select(this).text();
+        if (txt === "L1/R1") return "L1";
+        if (txt === "L1/R2") return "R1";
+        if (txt === "L2/R1") return "L2";
+        if (txt === "L2/R2") return "R2";
+        return txt;
+      });
+
+      // 绘制交叉比较箭头指示 (视觉辅助)
+      if (!isSuccess) {
+        const cut1X = OFFSET_X + i * (CELL_SIZE + SPACING) - SPACING / 2;
+        const cut2X = OFFSET_X + j * (CELL_SIZE + SPACING) - SPACING / 2;
+
+        // L1 -> R2
+        if (L1 > R2) {
+          svg.append("line")
+            .attr("x1", cut1X - 20).attr("y1", ROW1_Y + CELL_SIZE + 5)
+            .attr("x2", cut2X + 20).attr("y2", ROW2_Y - 5)
+            .attr("stroke", "#e74c3c").attr("stroke-width", 3)
+            .attr("marker-end", "url(#arrowhead-error)");
+        }
+        // L2 -> R1
+        if (L2 > R1) {
+          svg.append("line")
+            .attr("x1", cut2X - 20).attr("y1", ROW2_Y - 5)
+            .attr("x2", cut1X + 20).attr("y2", ROW1_Y + CELL_SIZE + 5)
+            .attr("stroke", "#e74c3c").attr("stroke-width", 3)
+            .attr("marker-end", "url(#arrowhead-error)");
+        }
+      }
+    }
+
+    // 箭头定义
+    svg.append("defs").append("marker")
+      .attr("id", "arrowhead-error")
+      .attr("viewBox", "-0 -5 10 10").attr("refX", 8).attr("refY", 0)
+      .attr("orient", "auto").attr("markerWidth", 8).attr("markerHeight", 8)
+      .attr("xoverflow", "visible")
+      .append("svg:path").attr("d", "M 0,-5 L 10 ,0 L 0,5").attr("fill", "#e74c3c");
+
+    // 事件绑定
+    const sliderI = document.getElementById("slider-i");
+    sliderI.addEventListener("input", (e) => {
+      render(parseInt(e.target.value));
+    });
+
+    // 初始渲染一刀错误状态，引导用户去拖动
+    render(4);
+
+  </script>
+</body>
+
+</html>
